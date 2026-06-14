@@ -1,5 +1,6 @@
 # converters/pdf_converter.py
 """PDF 转 Markdown 转换器"""
+import os
 import pdfplumber
 import fitz  # pymupdf
 from pathlib import Path
@@ -126,9 +127,69 @@ class PDFConverter(BaseConverter):
         return '\n'.join(markdown_parts)
 
     def _convert_image_pdf(self, file_path: str) -> str:
-        """转换图片型 PDF（将在任务 9 中完善）"""
+        """
+        转换图片型 PDF
+
+        优先使用 MinerU，失败则降级到 pymupdf
+        """
+        # 尝试使用 MinerU
+        if self.enable_mineru:
+            try:
+                result = self._convert_with_mineru(file_path)
+                if result:
+                    return result
+            except Exception as e:
+                print(f"MinerU 转换失败: {e}")
+
         # 降级到 pymupdf
+        print("降级到 pymupdf 处理")
         return self._convert_with_pymupdf(file_path)
+
+    def _convert_with_mineru(self, file_path: str) -> Optional[str]:
+        """
+        使用 MinerU 转换图片型 PDF
+
+        Returns:
+            Markdown 内容，失败返回 None
+        """
+        try:
+            from magic_pdf.data.data_reader_writer import FileBasedDataReader, FileBasedDataWriter
+            from magic_pdf.data.dataset import PymuDocDataset
+            from magic_pdf.model.doc_analyze_by_custom_model import doc_analyze
+
+            # 创建读取器
+            reader = FileBasedDataReader("")
+            pdf_bytes = reader.read(file_path)
+
+            # 创建数据集
+            ds = PymuDocDataset(pdf_bytes)
+
+            # 分析文档
+            if ds.classify() == "ocr":
+                infer_result = ds.apply_ocr()
+            else:
+                infer_result = ds.apply()
+
+            # 获取 Markdown 内容
+            content_list = infer_result.get_content_list(
+                FileBasedDataWriter(""),
+                os.path.basename(file_path).replace('.pdf', '')
+            )
+
+            # 提取文本
+            markdown_parts = []
+            for item in content_list:
+                if item.get('type') == 'text':
+                    markdown_parts.append(item.get('text', ''))
+
+            return '\n'.join(markdown_parts) if markdown_parts else None
+
+        except ImportError:
+            print("MinerU 未安装")
+            return None
+        except Exception as e:
+            print(f"MinerU 处理出错: {e}")
+            return None
 
     def _convert_with_pymupdf(self, file_path: str) -> str:
         """使用 pymupdf 转换"""
@@ -149,3 +210,27 @@ class PDFConverter(BaseConverter):
         doc.close()
 
         return '\n'.join(markdown_parts)
+
+    def convert_with_timeout(self, file_path: str, timeout: int = 300) -> str:
+        """
+        带超时的转换
+
+        Args:
+            file_path: PDF 文件路径
+            timeout: 超时时间（秒）
+
+        Returns:
+            Markdown 内容
+
+        Raises:
+            TimeoutError: 超时错误
+        """
+        try:
+            return run_with_timeout(
+                self.convert,
+                timeout=timeout,
+                args=(file_path,)
+            )
+        except TimeoutError:
+            # 尝试降级方案
+            return self._convert_with_pymupdf(file_path)

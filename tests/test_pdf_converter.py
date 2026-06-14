@@ -53,3 +53,32 @@ def test_save_converted_pdf():
         # 验证文件存在
         assert output_path.exists()
         assert output_path.suffix == ".md"
+
+
+def test_mineru_available():
+    """测试 MinerU 是否可用"""
+    try:
+        from magic_pdf.data.data_reader_writer import FileBasedDataReader
+        mineru_available = True
+    except ImportError:
+        mineru_available = False
+
+    if not mineru_available:
+        pytest.skip("MinerU 未安装")
+
+
+def test_convert_with_fallback():
+    """测试降级机制"""
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    pdf_path = fixtures_dir / "sample_text.pdf"
+
+    if not pdf_path.exists():
+        pytest.skip("测试文件不存在")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # 禁用 MinerU，测试降级
+        converter = PDFConverter(tmpdir, enable_mineru=False)
+        markdown = converter.convert(str(pdf_path))
+
+        # 应该使用 pdfplumber
+        assert len(markdown) > 0
