@@ -1,4 +1,49 @@
 # .gitignore
-.DS_Store
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+logs/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+tests/fixtures/*.pdf
+tests/fixtures/*.docx
+tests/fixtures/*.xlsx
+
+# Screenshots
+*.png
